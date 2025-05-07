@@ -1,0 +1,21 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Siga os padrões definidos para o projeto Intervallo:
+
+- Verifique se o ambiente de desenvolvimento está pronto, isto é, versão correta do node, se ele está instalado, o que falta para funcionar corretamente.
+- Nunca infira a resposta correta em caso de dúvidas, se tiver opções me deixe saber. exemplo: eu (IA) nao encontrei o node, entao eu vou criar a estrutura de pastas do modo manual. (nao deve fazer isso).
+- Use React 18 com Next.js (App Router), Tailwind CSS com variantes (`class-variance-authority` ou `@tailwind/variants`), Zustand para estado global e WebSocket centralizado em lib/ws.ts.
+- Organize a UI em components/ (visuais, reutilizáveis e sem lógica de domínio).
+- Toda lógica específica de domínio deve estar em features/ com subdivisão clara: components, hooks, store.ts (Zustand por feature), utils.ts.
+- Crie componentes pequenos, reutilizáveis, com responsabilidade única. Evite componentes com mais de 120 linhas ou múltiplas responsabilidades.
+- Valide dados com Zod ou Yup antes de enviá-los ao backend.
+- Mantenha consistência visual com variantes e tokens de design. Nunca use CSS puro ou styled-components.
+- Evite estado global desnecessário, lógica de socket dentro de componentes, hooks duplicados ou mistos.
+- Crie testes com Jest e React Testing Library. Simule lógica de tempo real, timers e interações de jogo.
+- Priorize acessibilidade: use ARIA, navegação por teclado e contraste adequado.
+
+Essas diretrizes devem ser consideradas para toda sugestão, geração ou refatoração de código neste projeto.
+
