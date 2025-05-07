@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Timer } from './Timer';
 import { PlayerList } from './PlayerList';
 import { GameOver } from './GameOver';
+import { GameSettings } from './GameSettings';
 import { Question } from '@/questions';
 import { generalKnowledgeQuestions, scienceQuestions, historyQuestions, geographyQuestions, entertainmentQuestions } from '@/questions';
 
@@ -18,69 +19,101 @@ interface PlayerScore {
   isReady?: boolean;
 }
 
+interface GameConfig {
+  rounds: number;
+  selectedCategories: string[];
+}
+
 export const Game = ({ category }: GameProps) => {
   const [gameState, setGameState] = useState<'waiting' | 'round-start' | 'answering' | 'showing-answer' | 'game-over'>('waiting');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [gameConfig, setGameConfig] = useState<GameConfig>({
+    rounds: 5,
+    selectedCategories: [category]
+  });
   const [players, setPlayers] = useState<PlayerScore[]>([
     { name: 'Você', score: 0, isReady: true },
     { name: 'Jogador 2', score: 0, isReady: true },
     { name: 'Jogador 3', score: 0, isReady: true },
   ]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [isAnswerBlocked, setIsAnswerBlocked] = useState(false);
 
-  const getQuestionsByCategory = () => {
-    switch (category) {
-      case 'general':
-        return generalKnowledgeQuestions;
-      case 'science':
-        return scienceQuestions;
-      case 'history':
-        return historyQuestions;
-      case 'geography':
-        return geographyQuestions;
-      case 'entertainment':
-        return entertainmentQuestions;
-      default:
-        return generalKnowledgeQuestions;
+  useEffect(() => {
+    // Inicializa as questões quando o jogo começa
+    if (gameState === 'round-start') {
+      const allQuestions: Question[] = [];
+      
+      gameConfig.selectedCategories.forEach(cat => {
+        switch (cat) {
+          case 'general':
+            allQuestions.push(...generalKnowledgeQuestions);
+            break;
+          case 'science':
+            allQuestions.push(...scienceQuestions);
+            break;
+          case 'history':
+            allQuestions.push(...historyQuestions);
+            break;
+          case 'geography':
+            allQuestions.push(...geographyQuestions);
+            break;
+          case 'entertainment':
+            allQuestions.push(...entertainmentQuestions);
+            break;
+        }
+      });
+
+      // Remove duplicatas baseado na pergunta
+      const uniqueQuestions = allQuestions.filter((question, index, self) =>
+        index === self.findIndex((q) => q.question === question.question)
+      );
+
+      // Embaralha e limita o número de questões
+      const shuffledQuestions = uniqueQuestions
+        .sort(() => Math.random() - 0.5)
+        .slice(0, gameConfig.rounds);
+      
+      setQuestions(shuffledQuestions);
     }
-  };
+  }, [gameState, gameConfig]);
 
-  const questions = getQuestionsByCategory();
   const currentQuestion = questions[currentQuestionIndex];
 
   const handleStartGame = () => {
     setGameState('round-start');
+    setIsAnswerBlocked(false);
   };
 
   const handleRoundTimerComplete = () => {
     setGameState('answering');
     setStartTime(Date.now());
+    setIsAnswerBlocked(false);
   };
 
   const handleAnswerTimerComplete = () => {
-    if (selectedAnswer === null) {
-      // Time's up - show correct answer
-      setGameState('showing-answer');
-      // Simulate other players answering
-      const otherPlayers = players.slice(1).map(player => ({
-        ...player,
-        lastAnswerTime: Math.random() * 7000,
-        score: player.score + (Math.random() > 0.5 ? 1 : 0)
-      }));
+    setIsAnswerBlocked(true);
+    setGameState('showing-answer');
+    
+    const otherPlayers = players.slice(1).map(player => ({
+      ...player,
+      lastAnswerTime: Math.random() * 7000,
+      score: player.score + (Math.random() > 0.5 ? 1 : 0)
+    }));
 
-      setPlayers([
-        {
-          name: 'Você',
-          score: players[0].score,
-          lastAnswerTime: 7000
-        },
-        ...otherPlayers
-      ]);
+    setPlayers([
+      {
+        name: 'Você',
+        score: players[0].score,
+        lastAnswerTime: 7000
+      },
+      ...otherPlayers
+    ]);
 
-      // Wait 2 seconds before next question
-      setTimeout(handleNextQuestion, 2000);
-    }
+    setTimeout(handleNextQuestion, 2000);
   };
 
   const handleNextQuestion = () => {
@@ -94,12 +127,12 @@ export const Game = ({ category }: GameProps) => {
   };
 
   const handleAnswerClick = (selectedOption: number) => {
-    if (selectedAnswer !== null) return;
+    if (selectedAnswer !== null || !currentQuestion || isAnswerBlocked) return;
     
     const answerTime = Date.now() - startTime;
     setSelectedAnswer(selectedOption);
+    setIsAnswerBlocked(true);
     
-    // Simulate other players answering
     const otherPlayers = players.slice(1).map(player => ({
       ...player,
       lastAnswerTime: Math.random() * 7000,
@@ -119,7 +152,6 @@ export const Game = ({ category }: GameProps) => {
     setPlayers(updatedPlayers);
     setGameState('showing-answer');
 
-    // Wait 2 seconds before next question
     setTimeout(handleNextQuestion, 2000);
   };
 
@@ -127,7 +159,14 @@ export const Game = ({ category }: GameProps) => {
     setGameState('waiting');
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
+    setQuestions([]);
+    setIsAnswerBlocked(false);
     setPlayers(players.map(player => ({ ...player, score: 0, lastAnswerTime: undefined })));
+  };
+
+  const handleSaveSettings = (settings: GameConfig) => {
+    setGameConfig(settings);
+    setShowSettings(false);
   };
 
   const renderGameContent = () => {
@@ -135,12 +174,24 @@ export const Game = ({ category }: GameProps) => {
       case 'waiting':
         return (
           <div className="flex flex-col items-center justify-center h-full bg-gradient-to-b from-blue-900 to-blue-800">
-            <button
-              onClick={handleStartGame}
-              className="px-8 py-4 text-xl font-bold text-blue-900 bg-white rounded-lg hover:bg-blue-50 transition-colors shadow-lg"
-            >
-              Iniciar Jogo
-            </button>
+            <div className="flex gap-4 mb-8">
+              <button
+                onClick={handleStartGame}
+                className="px-8 py-4 text-xl font-bold text-blue-900 bg-white rounded-lg hover:bg-blue-50 transition-colors shadow-lg"
+              >
+                Iniciar Jogo
+              </button>
+              <button
+                onClick={() => setShowSettings(true)}
+                className="px-8 py-4 text-xl font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
+              >
+                Configurações
+              </button>
+            </div>
+            <div className="text-white text-center">
+              <p className="mb-2">Categorias selecionadas: {gameConfig.selectedCategories.length}</p>
+              <p>Total de rodadas: {gameConfig.rounds}</p>
+            </div>
           </div>
         );
 
@@ -153,6 +204,8 @@ export const Game = ({ category }: GameProps) => {
 
       case 'answering':
       case 'showing-answer':
+        if (!currentQuestion) return null;
+        
         return (
           <div className="max-w-2xl mx-auto p-6">
             <div className="mb-8 text-center">
@@ -170,9 +223,9 @@ export const Game = ({ category }: GameProps) => {
                 <button
                   key={index}
                   onClick={() => handleAnswerClick(index)}
-                  disabled={selectedAnswer !== null}
+                  disabled={selectedAnswer !== null || isAnswerBlocked}
                   className={`p-4 text-lg font-medium text-left rounded-lg transition-colors ${
-                    selectedAnswer === null
+                    selectedAnswer === null && !isAnswerBlocked
                       ? 'bg-white hover:bg-blue-50 text-black'
                       : index === currentQuestion.correctAnswer
                       ? 'bg-green-100 border-2 border-green-500 text-black'
@@ -226,6 +279,12 @@ export const Game = ({ category }: GameProps) => {
         )}
         {renderGameContent()}
       </div>
+      {showSettings && (
+        <GameSettings
+          onSave={handleSaveSettings}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   );
 }; 
