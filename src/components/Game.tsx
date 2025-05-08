@@ -8,6 +8,7 @@ import { Question } from '@/questions';
 import { QuestionService, Category } from '@/services/questionService';
 import { QuestionPhase } from './QuestionPhase';
 import { AnswerRevealPhase } from './AnswerRevealPhase';
+import { calculateRoundScore } from '@/utils/scoreCalculator';
 
 interface GameProps {
   category: string;
@@ -18,6 +19,7 @@ interface PlayerScore {
   score: number;
   lastAnswerTime?: number;
   isReady?: boolean;
+  streakCount?: number;
 }
 
 interface GameConfig {
@@ -97,18 +99,38 @@ export const Game = ({ category }: GameProps) => {
     setSelectedAnswer(selectedOption);
     
     // Simulate other players answering
-    const otherPlayers = players.slice(1).map(player => ({
-      ...player,
-      lastAnswerTime: Math.random() * 7000,
-      score: player.score + (Math.random() > 0.5 ? 1 : 0)
-    }));
+    const otherPlayers = players.slice(1).map(player => {
+      const simulatedTime = Math.random() * 7000;
+      const isCorrect = Math.random() > 0.3; // 70% de chance de acertar
+      const roundScore = calculateRoundScore({
+        answerTime: simulatedTime,
+        isCorrect,
+        maxTime: 7000,
+        maxScore: 1000
+      });
+      
+      return {
+        ...player,
+        lastAnswerTime: simulatedTime,
+        roundScore,
+        score: player.score + roundScore
+      };
+    });
 
     const isCorrect = selectedOption === currentQuestion.correctAnswer;
+    const roundScore = calculateRoundScore({
+      answerTime,
+      isCorrect,
+      maxTime: 7000,
+      maxScore: 1000
+    });
+
     const updatedPlayers = [
       {
         name: 'Você',
-        score: players[0].score + (isCorrect ? 1 : 0),
-        lastAnswerTime: answerTime
+        score: players[0].score + roundScore,
+        lastAnswerTime: answerTime,
+        roundScore
       },
       ...otherPlayers
     ];
@@ -119,6 +141,36 @@ export const Game = ({ category }: GameProps) => {
 
   const handleQuestionTimeUp = () => {
     if (selectedAnswer === null) {
+      // Simulate other players answering when time's up
+      const otherPlayers = players.slice(1).map(player => {
+        const simulatedTime = Math.random() * 7000;
+        const isCorrect = Math.random() > 0.3;
+        const roundScore = calculateRoundScore({
+          answerTime: simulatedTime,
+          isCorrect,
+          maxTime: 7000,
+          maxScore: 1000
+        });
+        
+        return {
+          ...player,
+          lastAnswerTime: simulatedTime,
+          roundScore,
+          score: player.score + roundScore
+        };
+      });
+
+      const updatedPlayers = [
+        {
+          name: 'Você',
+          score: players[0].score,
+          lastAnswerTime: 7000,
+          roundScore: 0
+        },
+        ...otherPlayers
+      ];
+
+      setPlayers(updatedPlayers);
       setGameState('answer');
     }
   };
