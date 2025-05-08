@@ -3,9 +3,9 @@
 // Tipo para representar uma pergunta do quiz
 export type Question = {
   id: string;
-  text: string;
+  question: string;
   options: string[];
-  correctAnswer?: string; // Opcional porque pode não ser revelado ao usuário
+  correctAnswer: number;
   timeLimit?: number; // Tempo limite em segundos
 };
 
@@ -55,4 +55,12 @@ export type PlayerAnswer = {
   answer: string;
   time: number; // Tempo gasto para responder em milissegundos
   isCorrect?: boolean;
+};
+
+// Tipo para representar a pontuação de um jogador
+export type PlayerScore = {
+  name: string;
+  score: number;
+  lastAnswerTime?: number;
+  isReady?: boolean;
 }; 
