@@ -9,6 +9,8 @@ import { QuestionService, Category } from '@/services/questionService';
 import { QuestionPhase } from './QuestionPhase';
 import { AnswerRevealPhase } from './AnswerRevealPhase';
 import { calculateRoundScore } from '@/utils/scoreCalculator';
+import { GameTransition } from './GameTransition';
+import { RoundTransition } from './RoundTransition';
 
 interface GameProps {
   category: string;
@@ -179,8 +181,7 @@ export const Game = ({ category }: GameProps) => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
-      setGameState('question');
-      setStartTime(Date.now());
+      setGameState('pre-question');
     } else {
       setGameState('game-over');
     }
@@ -273,40 +274,41 @@ export const Game = ({ category }: GameProps) => {
 
       case 'pre-question':
         return (
-          <div className="flex items-center justify-center h-full">
-            <Timer
+          <GameTransition isVisible={true} onComplete={() => {}}>
+            <RoundTransition
+              roundNumber={currentQuestionIndex + 1}
               onComplete={handlePreQuestionComplete}
-              duration={3}
-              variant="centered"
-              text="O jogo começa em..."
-              className="bg-gradient-to-r from-blue-600 to-blue-800"
             />
-          </div>
+          </GameTransition>
         );
 
       case 'question':
         if (!currentQuestion) return null;
         return (
-          <QuestionPhase
-            question={currentQuestion}
-            onAnswer={handleAnswerClick}
-            onTimeUp={handleQuestionTimeUp}
-            selectedAnswer={selectedAnswer}
-            questionNumber={currentQuestionIndex + 1}
-            totalQuestions={questions.length}
-          />
+          <GameTransition isVisible={true} onComplete={() => {}}>
+            <QuestionPhase
+              question={currentQuestion}
+              onAnswer={handleAnswerClick}
+              onTimeUp={handleQuestionTimeUp}
+              selectedAnswer={selectedAnswer}
+              questionNumber={currentQuestionIndex + 1}
+              totalQuestions={questions.length}
+            />
+          </GameTransition>
         );
 
       case 'answer':
         if (!currentQuestion) return null;
         return (
-          <AnswerRevealPhase
-            question={currentQuestion}
-            selectedAnswer={selectedAnswer}
-            onNextRound={handleNextRound}
-            players={players}
-            roundNumber={currentQuestionIndex + 1}
-          />
+          <GameTransition isVisible={true} onComplete={() => {}}>
+            <AnswerRevealPhase
+              question={currentQuestion}
+              selectedAnswer={selectedAnswer}
+              onNextRound={handleNextRound}
+              players={players}
+              roundNumber={currentQuestionIndex + 1}
+            />
+          </GameTransition>
         );
 
       case 'game-over':
