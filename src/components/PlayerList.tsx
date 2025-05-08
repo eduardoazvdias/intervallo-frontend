@@ -1,18 +1,13 @@
 'use client';
 
-interface PlayerScore {
-  name: string;
-  score: number;
-  isReady?: boolean;
-  lastAnswerTime?: number;
-}
+import { PlayerScore } from '@/types/game';
 
 interface PlayerListProps {
   players: PlayerScore[];
 }
 
 export const PlayerList = ({ players }: PlayerListProps) => {
-  // Sort players by score in descending order
+  // Sort players by total score in descending order
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
 
   const getPositionColor = (index: number) => {
@@ -30,7 +25,7 @@ export const PlayerList = ({ players }: PlayerListProps) => {
 
   return (
     <div className="w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white p-4 h-full">
-      <h3 className="text-xl font-bold mb-6 text-center text-white">Jogadores</h3>
+      <h3 className="text-xl font-bold mb-6 text-center text-white">Placar Total</h3>
       <div className="space-y-3">
         {sortedPlayers.map((player, index) => (
           <div
@@ -43,16 +38,7 @@ export const PlayerList = ({ players }: PlayerListProps) => {
               />
               <span className="font-medium text-black">{player.name}</span>
             </div>
-            <div className="flex items-center gap-2">
-              {player.lastAnswerTime && (
-                <span className="text-sm text-gray-600">
-                  {player.lastAnswerTime < 1000
-                    ? `${player.lastAnswerTime}ms`
-                    : `${(player.lastAnswerTime / 1000).toFixed(1)}s`}
-                </span>
-              )}
-              <span className="font-bold text-blue-600">{player.score}</span>
-            </div>
+            <span className="font-bold text-blue-600">{player.score} pontos</span>
           </div>
         ))}
       </div>

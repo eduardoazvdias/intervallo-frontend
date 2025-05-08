@@ -6,6 +6,8 @@ import { PlayerList } from './PlayerList';
 import { GameOver } from './GameOver';
 import { Question } from '@/questions';
 import { QuestionService, Category } from '@/services/questionService';
+import { QuestionPhase } from './QuestionPhase';
+import { AnswerRevealPhase } from './AnswerRevealPhase';
 
 interface GameProps {
   category: string;
@@ -24,7 +26,7 @@ interface GameConfig {
 }
 
 export const Game = ({ category }: GameProps) => {
-  const [gameState, setGameState] = useState<'lobby' | 'config' | 'waiting' | 'round-start' | 'answering' | 'showing-answer' | 'game-over'>('lobby');
+  const [gameState, setGameState] = useState<'lobby' | 'config' | 'waiting' | 'pre-question' | 'question' | 'answer' | 'game-over'>('lobby');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
@@ -44,7 +46,7 @@ export const Game = ({ category }: GameProps) => {
   const categories = questionService.getCategories();
 
   useEffect(() => {
-    if (gameState === 'round-start') {
+    if (gameState === 'question') {
       const gameQuestions = questionService.getQuestionsForGame(
         gameConfig.selectedCategories,
         gameConfig.rounds
@@ -56,7 +58,7 @@ export const Game = ({ category }: GameProps) => {
   const currentQuestion = questions[currentQuestionIndex];
 
   const handleStartGame = () => {
-    setGameState('round-start');
+    setGameState('pre-question');
   };
 
   const handleOpenConfig = () => {
@@ -83,44 +85,9 @@ export const Game = ({ category }: GameProps) => {
     }));
   };
 
-  const handleRoundTimerComplete = () => {
-    setGameState('answering');
+  const handlePreQuestionComplete = () => {
+    setGameState('question');
     setStartTime(Date.now());
-  };
-
-  const handleAnswerTimerComplete = () => {
-    if (selectedAnswer === null) {
-      // Time's up - show correct answer
-      setGameState('showing-answer');
-      // Simulate other players answering
-      const otherPlayers = players.slice(1).map(player => ({
-        ...player,
-        lastAnswerTime: Math.random() * 7000,
-        score: player.score + (Math.random() > 0.5 ? 1 : 0)
-      }));
-
-      setPlayers([
-        {
-          name: 'Você',
-          score: players[0].score,
-          lastAnswerTime: 7000
-        },
-        ...otherPlayers
-      ]);
-
-      // Wait 2 seconds before next question
-      setTimeout(handleNextQuestion, 2000);
-    }
-  };
-
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setSelectedAnswer(null);
-      setGameState('round-start');
-    } else {
-      setGameState('game-over');
-    }
   };
 
   const handleAnswerClick = (selectedOption: number) => {
@@ -147,10 +114,24 @@ export const Game = ({ category }: GameProps) => {
     ];
 
     setPlayers(updatedPlayers);
-    setGameState('showing-answer');
+    setGameState('answer');
+  };
 
-    // Wait 2 seconds before next question
-    setTimeout(handleNextQuestion, 2000);
+  const handleQuestionTimeUp = () => {
+    if (selectedAnswer === null) {
+      setGameState('answer');
+    }
+  };
+
+  const handleNextRound = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setSelectedAnswer(null);
+      setGameState('question');
+      setStartTime(Date.now());
+    } else {
+      setGameState('game-over');
+    }
   };
 
   const handlePlayAgain = () => {
@@ -238,72 +219,42 @@ export const Game = ({ category }: GameProps) => {
           </div>
         );
 
-      case 'round-start':
+      case 'pre-question':
         return (
-          <div className="flex items-center justify-center h-full bg-gradient-to-b from-blue-900 to-blue-800">
-            <Timer onComplete={handleRoundTimerComplete} duration={3} variant="centered" />
+          <div className="flex items-center justify-center h-full">
+            <Timer
+              onComplete={handlePreQuestionComplete}
+              duration={3}
+              variant="centered"
+              text="O jogo começa em..."
+              className="bg-gradient-to-r from-blue-600 to-blue-800"
+            />
           </div>
         );
 
-      case 'answering':
-      case 'showing-answer':
+      case 'question':
         if (!currentQuestion) return null;
         return (
-          <div className="max-w-2xl mx-auto p-6">
-            <div className="mb-8 text-center">
-              <h2 className="text-2xl font-bold mb-2 text-white">
-                Pergunta {currentQuestionIndex + 1} de {questions.length}
-              </h2>
-            </div>
-            
-            <h2 className="mb-8 text-2xl font-bold text-center text-white">
-              {currentQuestion.question}
-            </h2>
-            
-            <div className="grid grid-cols-1 gap-4">
-              {currentQuestion.options.map((option, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleAnswerClick(index)}
-                  disabled={selectedAnswer !== null}
-                  className={`p-4 text-lg font-medium text-left rounded-lg transition-colors ${
-                    selectedAnswer === null
-                      ? 'bg-white hover:bg-blue-50 text-black'
-                      : index === currentQuestion.correctAnswer
-                      ? 'bg-green-100 border-2 border-green-500 text-black'
-                      : selectedAnswer === index
-                      ? 'bg-red-100 border-2 border-red-500 text-black'
-                      : 'bg-white bg-opacity-50 text-black'
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
+          <QuestionPhase
+            question={currentQuestion}
+            onAnswer={handleAnswerClick}
+            onTimeUp={handleQuestionTimeUp}
+            selectedAnswer={selectedAnswer}
+            questionNumber={currentQuestionIndex + 1}
+            totalQuestions={questions.length}
+          />
+        );
 
-            {gameState === 'showing-answer' && (
-              <div className="mt-8 p-4 bg-white rounded-lg shadow-md">
-                <h3 className="text-xl font-bold mb-4 text-black">Resultados</h3>
-                <div className="space-y-2">
-                  {players.map((player, index) => (
-                    <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                      <span className="text-black">{player.name}</span>
-                      <div className="flex items-center gap-4">
-                        {player.lastAnswerTime && (
-                          <span className="text-sm text-gray-600">
-                            {player.lastAnswerTime < 1000
-                              ? `${player.lastAnswerTime}ms`
-                              : `${(player.lastAnswerTime / 1000).toFixed(1)}s`}
-                          </span>
-                        )}
-                        <span className="font-bold text-blue-600">{player.score} pontos</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+      case 'answer':
+        if (!currentQuestion) return null;
+        return (
+          <AnswerRevealPhase
+            question={currentQuestion}
+            selectedAnswer={selectedAnswer}
+            onNextRound={handleNextRound}
+            players={players}
+            roundNumber={currentQuestionIndex + 1}
+          />
         );
 
       case 'game-over':
@@ -316,9 +267,6 @@ export const Game = ({ category }: GameProps) => {
       <PlayerList players={players} />
       <div className="w-px bg-gray-300" />
       <div className="flex-1 relative bg-gradient-to-b from-blue-900 to-blue-800">
-        {gameState === 'answering' && (
-          <Timer onComplete={handleAnswerTimerComplete} duration={7} variant="corner" />
-        )}
         {renderGameContent()}
       </div>
     </div>
