@@ -58,9 +58,11 @@ export type PlayerAnswer = {
 };
 
 // Tipo para representar a pontuação de um jogador
-export type PlayerScore = {
+export interface PlayerScore {
   name: string;
   score: number;
-  lastAnswerTime?: number;
-  isReady?: boolean;
-}; 
+  lastAnswerTime?: number; // Tempo da última resposta em milissegundos
+  roundScore?: number; // Pontuação do round atual
+  streakCount?: number; // Número de respostas corretas seguidas
+  difficulty?: 'easy' | 'medium' | 'hard'; // Dificuldade da última pergunta
+} 

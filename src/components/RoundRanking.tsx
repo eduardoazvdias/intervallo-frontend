@@ -1,4 +1,5 @@
 import { PlayerScore } from '@/types/game';
+import { formatScore, getBonusText } from '@/utils/scoreCalculator';
 
 interface RoundRankingProps {
   players: PlayerScore[];
@@ -6,13 +7,14 @@ interface RoundRankingProps {
 }
 
 export const RoundRanking = ({ players, roundNumber }: RoundRankingProps) => {
-  // Sort players by answer time (faster first) and then by score
+  // Sort players by round score (higher first) and then by time
   const sortedPlayers = [...players]
     .filter(player => player.lastAnswerTime !== undefined)
     .sort((a, b) => {
-      if (a.lastAnswerTime === undefined) return 1;
-      if (b.lastAnswerTime === undefined) return -1;
-      return a.lastAnswerTime - b.lastAnswerTime;
+      if (a.roundScore === undefined) return 1;
+      if (b.roundScore === undefined) return -1;
+      if (b.roundScore !== a.roundScore) return b.roundScore - a.roundScore;
+      return (a.lastAnswerTime || 0) - (b.lastAnswerTime || 0);
     });
 
   return (
@@ -32,17 +34,38 @@ export const RoundRanking = ({ players, roundNumber }: RoundRankingProps) => {
               </div>
               <span className="text-black">{player.name}</span>
             </div>
-            <div className="flex items-center gap-4">
-              {player.lastAnswerTime && (
-                <span className="text-sm text-gray-600">
-                  {player.lastAnswerTime < 1000
-                    ? `${player.lastAnswerTime}ms`
-                    : `${(player.lastAnswerTime / 1000).toFixed(1)}s`}
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-4">
+                {player.lastAnswerTime && (
+                  <span className="text-sm text-gray-600">
+                    {player.lastAnswerTime < 1000
+                      ? `${player.lastAnswerTime}ms`
+                      : `${(player.lastAnswerTime / 1000).toFixed(1)}s`}
+                  </span>
+                )}
+                <span className={`font-bold ${
+                  player.roundScore && player.roundScore > 0
+                    ? 'text-green-600'
+                    : player.roundScore && player.roundScore < 0
+                    ? 'text-red-600'
+                    : 'text-blue-600'
+                }`}>
+                  {player.roundScore !== undefined ? formatScore(player.roundScore) : '0'} pontos
+                </span>
+              </div>
+              {player.roundScore !== undefined && player.lastAnswerTime !== undefined && (
+                <span className="text-sm text-gray-500">
+                  {getBonusText(player.roundScore, {
+                    answerTime: player.lastAnswerTime,
+                    isCorrect: player.roundScore > 0,
+                    maxTime: 7000,
+                    maxScore: 1000,
+                    streakCount: player.streakCount,
+                    isFirstToAnswer: index === 0 && player.roundScore > 0,
+                    difficulty: player.difficulty
+                  })}
                 </span>
               )}
-              <span className="font-bold text-blue-600">
-                {player.lastAnswerTime !== undefined ? '+1 ponto' : '0 pontos'}
-              </span>
             </div>
           </div>
         ))}
