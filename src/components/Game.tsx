@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Timer } from './Timer';
 import { PlayerList } from './PlayerList';
 import { GameOver } from './GameOver';
 import { Question } from '@/questions';
-import { generalKnowledgeQuestions, scienceQuestions, historyQuestions, geographyQuestions, entertainmentQuestions } from '@/questions';
+import { QuestionService, Category } from '@/services/questionService';
 
 interface GameProps {
   category: string;
@@ -18,39 +18,69 @@ interface PlayerScore {
   isReady?: boolean;
 }
 
+interface GameConfig {
+  rounds: number;
+  selectedCategories: string[];
+}
+
 export const Game = ({ category }: GameProps) => {
-  const [gameState, setGameState] = useState<'waiting' | 'round-start' | 'answering' | 'showing-answer' | 'game-over'>('waiting');
+  const [gameState, setGameState] = useState<'lobby' | 'config' | 'waiting' | 'round-start' | 'answering' | 'showing-answer' | 'game-over'>('lobby');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
+  const [gameConfig, setGameConfig] = useState<GameConfig>({
+    rounds: 5,
+    selectedCategories: [category]
+  });
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const questionService = QuestionService.getInstance();
+
   const [players, setPlayers] = useState<PlayerScore[]>([
     { name: 'Você', score: 0, isReady: true },
     { name: 'Jogador 2', score: 0, isReady: true },
     { name: 'Jogador 3', score: 0, isReady: true },
   ]);
 
-  const getQuestionsByCategory = () => {
-    switch (category) {
-      case 'general':
-        return generalKnowledgeQuestions;
-      case 'science':
-        return scienceQuestions;
-      case 'history':
-        return historyQuestions;
-      case 'geography':
-        return geographyQuestions;
-      case 'entertainment':
-        return entertainmentQuestions;
-      default:
-        return generalKnowledgeQuestions;
-    }
-  };
+  const categories = questionService.getCategories();
 
-  const questions = getQuestionsByCategory();
+  useEffect(() => {
+    if (gameState === 'round-start') {
+      const gameQuestions = questionService.getQuestionsForGame(
+        gameConfig.selectedCategories,
+        gameConfig.rounds
+      );
+      setQuestions(gameQuestions);
+    }
+  }, [gameState, gameConfig.selectedCategories, gameConfig.rounds]);
+
   const currentQuestion = questions[currentQuestionIndex];
 
   const handleStartGame = () => {
     setGameState('round-start');
+  };
+
+  const handleOpenConfig = () => {
+    setGameState('config');
+  };
+
+  const handleSaveConfig = () => {
+    setGameState('lobby');
+  };
+
+  const handleCategoryToggle = (categoryId: string) => {
+    setGameConfig(prev => ({
+      ...prev,
+      selectedCategories: prev.selectedCategories.includes(categoryId)
+        ? prev.selectedCategories.filter(id => id !== categoryId)
+        : [...prev.selectedCategories, categoryId]
+    }));
+  };
+
+  const handleRoundsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setGameConfig(prev => ({
+      ...prev,
+      rounds: parseInt(e.target.value)
+    }));
   };
 
   const handleRoundTimerComplete = () => {
@@ -94,7 +124,7 @@ export const Game = ({ category }: GameProps) => {
   };
 
   const handleAnswerClick = (selectedOption: number) => {
-    if (selectedAnswer !== null) return;
+    if (selectedAnswer !== null || !currentQuestion) return;
     
     const answerTime = Date.now() - startTime;
     setSelectedAnswer(selectedOption);
@@ -124,7 +154,7 @@ export const Game = ({ category }: GameProps) => {
   };
 
   const handlePlayAgain = () => {
-    setGameState('waiting');
+    setGameState('lobby');
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
     setPlayers(players.map(player => ({ ...player, score: 0, lastAnswerTime: undefined })));
@@ -132,6 +162,70 @@ export const Game = ({ category }: GameProps) => {
 
   const renderGameContent = () => {
     switch (gameState) {
+      case 'lobby':
+        return (
+          <div className="flex flex-col items-center justify-center h-full gap-8">
+            <button
+              onClick={handleStartGame}
+              className="px-8 py-4 text-xl font-bold text-blue-900 bg-white rounded-lg hover:bg-blue-50 transition-colors shadow-lg"
+            >
+              Iniciar
+            </button>
+            <button
+              onClick={handleOpenConfig}
+              className="px-8 py-4 text-xl font-bold text-blue-900 bg-white rounded-lg hover:bg-blue-50 transition-colors shadow-lg"
+            >
+              Configurações
+            </button>
+          </div>
+        );
+
+      case 'config':
+        return (
+          <div className="p-8">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-white mb-4">Número de Rounds</h2>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                value={gameConfig.rounds}
+                onChange={handleRoundsChange}
+                className="w-full"
+              />
+              <div className="text-white text-center mt-2">{gameConfig.rounds} rounds</div>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-4">Categorias</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {categories.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => handleCategoryToggle(category.id)}
+                    className={`p-4 rounded-lg transition-colors ${
+                      gameConfig.selectedCategories.includes(category.id)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-blue-900 hover:bg-blue-50'
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={handleSaveConfig}
+                className="px-8 py-4 text-xl font-bold text-blue-900 bg-white rounded-lg hover:bg-blue-50 transition-colors shadow-lg"
+              >
+                Salvar e Fechar
+              </button>
+            </div>
+          </div>
+        );
+
       case 'waiting':
         return (
           <div className="flex flex-col items-center justify-center h-full bg-gradient-to-b from-blue-900 to-blue-800">
@@ -153,6 +247,7 @@ export const Game = ({ category }: GameProps) => {
 
       case 'answering':
       case 'showing-answer':
+        if (!currentQuestion) return null;
         return (
           <div className="max-w-2xl mx-auto p-6">
             <div className="mb-8 text-center">
